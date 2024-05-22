@@ -172,14 +172,14 @@ func (c *Comm) Read() (buf []byte, numBytes int, bs []byte, err error) {
 		log.Debug(err.Error())
 		return
 	}
-	numBytes = int(numBytesUint32)
+	numBytes = int(numBytesUint32) // 会溢出么? 还是自己的server保证了不会?
 
 	// shorten the reading deadline in case getting weird data
 	if err = c.connection.SetReadDeadline(time.Now().Add(10 * time.Second)); err != nil {
 		log.Warnf("error setting read deadline: %v", err)
 	}
 	buf = make([]byte, numBytes)
-	_, err = io.ReadFull(c.connection, buf)
+	_, err = io.ReadFull(c.connection, buf) // 真正的数据在这里
 	if err != nil {
 		log.Debugf("consecutive read error: %v", err)
 		return

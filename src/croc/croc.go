@@ -183,6 +183,7 @@ type SenderInfo struct {
 }
 
 // New establishes a new connection for transferring files between two instances.
+// 注意此处的Options传递了结构体本身, 这样可以避免改动影响外部, 聊胜于无吧
 func New(ops Options) (c *Client, err error) {
 	c = new(Client)
 	c.FilesHasFinished = make(map[int]struct{})
@@ -627,6 +628,7 @@ func (c *Client) transferOverLocalRelay(errchan chan<- error) {
 }
 
 // Send will send the specified file
+// 发送文件给远端
 func (c *Client) Send(filesInfo []FileInfo, emptyFoldersToTransfer []FileInfo, totalNumberFolders int) (err error) {
 	c.EmptyFoldersToTransfer = emptyFoldersToTransfer
 	c.TotalNumberFolders = totalNumberFolders
@@ -683,6 +685,7 @@ func (c *Client) Send(filesInfo []FileInfo, emptyFoldersToTransfer []FileInfo, t
 				log.Debugf("got host '%v' and port '%v'", host, port)
 				address = net.JoinHostPort(host, port)
 				log.Debugf("trying connection to %s", address)
+				// 交换秘钥, 生成密码, 发送room给远端, 返回封装的conn
 				conn, banner, ipaddr, err = tcp.ConnectToTCPServer(address, c.Options.RelayPassword, c.Options.RoomName, durations[i])
 				if err == nil {
 					c.Options.RelayAddress = address
@@ -696,13 +699,13 @@ func (c *Client) Send(filesInfo []FileInfo, emptyFoldersToTransfer []FileInfo, t
 			if err != nil {
 				err = fmt.Errorf("could not connect to %s: %w", c.Options.RelayAddress, err)
 				log.Debug(err)
-				errchan <- err
+				errchan <- err // 使用errchan传递错误
 				return
 			}
 			log.Debugf("banner: %s", banner)
 			log.Debugf("connection established: %+v", conn)
 			var kB []byte
-			var dataMessage SimpleMessage
+			var dataMessage SimpleMessage // 就是bytes+kind
 			B, _ := pake.InitCurve([]byte(c.Options.SharedSecret[5:]), 1, c.Options.Curve)
 			for {
 				log.Debug("waiting for bytes")
@@ -721,7 +724,7 @@ func (c *Client) Send(filesInfo []FileInfo, emptyFoldersToTransfer []FileInfo, t
 						log.Debugf("error decrypting: %v", err)
 					}
 				}
-				if bytes.Equal(data, ipRequest) {
+				if bytes.Equal(data, ipRequest) { // ipRequest="ips?"
 					// recipient wants to try to connect to local ips
 					var ips []string
 					// only get local ips if the local is enabled
@@ -754,7 +757,7 @@ func (c *Client) Send(filesInfo []FileInfo, emptyFoldersToTransfer []FileInfo, t
 						}
 
 					}
-				} else if bytes.Equal(data, handshakeRequest) {
+				} else if bytes.Equal(data, handshakeRequest) { // handshakeRequest="handshake"
 					break
 				} else if bytes.Equal(data, []byte{1}) {
 					log.Debug("got ping")
@@ -779,7 +782,7 @@ func (c *Client) Send(filesInfo []FileInfo, emptyFoldersToTransfer []FileInfo, t
 		}()
 	}
 
-	err = <-errchan
+	err = <-errchan // 秋后算账的err处理
 	if err == nil {
 		// return if no error
 		return

@@ -31,8 +31,10 @@ var Version string
 // Run will run the command line program
 func Run() (err error) {
 	// use all of the processors
+	// 没有意义的设置, 就是原本的默认值
 	runtime.GOMAXPROCS(runtime.NumCPU())
 
+	// 一个作者自己的库的app通用封装
 	app := cli.NewApp()
 	app.Name = "croc"
 	if Version == "" {
@@ -135,12 +137,15 @@ func Run() (err error) {
 			promptMessage := fmt.Sprintf("Did you mean to send %s? (Y/n) ", strings.Join(fnames, ", "))
 			choice := strings.ToLower(utils.GetInput(promptMessage))
 			if choice == "" || choice == "y" || choice == "yes" {
+				// 发送文件
 				return send(c)
 			}
 		}
+		// 接受文件
 		return receive(c)
 	}
 
+	// 仅仅是app的封装, 真正的命令都是上面提前绑定好的函数 app.Action
 	return app.Run(os.Args)
 }
 
@@ -180,9 +185,10 @@ func determinePass(c *cli.Context) (pass string) {
 	return
 }
 
+// send 使用上线文带的参数发送文件
 func send(c *cli.Context) (err error) {
 	setDebugLevel(c)
-	comm.Socks5Proxy = c.String("socks5")
+	comm.Socks5Proxy = c.String("socks5") // c.xxx 都是app的参数的封装而已, 看起来是个kv值map
 	comm.HttpProxy = c.String("connect")
 
 	portParam := c.Int("port")
@@ -314,6 +320,7 @@ func send(c *cli.Context) (err error) {
 	}
 
 	// if operating system is UNIX, then use environmental variable to set the code
+	// 为啥linux就唯独需要设置环境变量的phrase呢? windows就没有安全性了么?
 	if runtime.GOOS == "linux" {
 		log.Debug("forcing code phrase from environmental variable")
 		crocOptions.SharedSecret = os.Getenv("CROC_SECRET")
@@ -326,6 +333,7 @@ export CROC_SECRET="yourcodephrasetouse"
 		}
 	}
 
+	// 创建了一个croc Client实例
 	cr, err := croc.New(crocOptions)
 	if err != nil {
 		return

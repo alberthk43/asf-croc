@@ -437,6 +437,7 @@ func PingServer(address string) (err error) {
 // ConnectToTCPServer will initiate a new connection
 // to the specified address, room with optional time limit
 func ConnectToTCPServer(address, password, room string, timelimit ...time.Duration) (c *comm.Comm, banner string, ipaddr string, err error) {
+	// 如果只用了第一个为啥要用 ... 展开允许传入很多个?
 	if len(timelimit) > 0 {
 		c, err = comm.NewConnection(address, timelimit[0])
 	} else {
@@ -448,17 +449,18 @@ func ConnectToTCPServer(address, password, room string, timelimit ...time.Durati
 	}
 
 	// get PAKE connection with server to establish strong key to transfer info
+	// 椭圆曲线的加密算法? 还是作者自己的库
 	A, err := pake.InitCurve(weakKey, 0, "siec")
 	if err != nil {
 		log.Debug(err)
 		return
 	}
-	err = c.Send(A.Bytes())
+	err = c.Send(A.Bytes()) // 交换密钥
 	if err != nil {
 		log.Debug(err)
 		return
 	}
-	Bbytes, err := c.Receive()
+	Bbytes, err := c.Receive() // 交换密钥
 	if err != nil {
 		log.Debug(err)
 		return
@@ -493,13 +495,13 @@ func ConnectToTCPServer(address, password, room string, timelimit ...time.Durati
 		log.Debug(err)
 		return
 	}
-	err = c.Send(bSend)
+	err = c.Send(bSend) // 发送密码
 	if err != nil {
 		log.Debug(err)
 		return
 	}
 	log.Debug("waiting for first ok")
-	enc, err := c.Receive()
+	enc, err := c.Receive() // 等待密码验证
 	if err != nil {
 		log.Debug(err)
 		return
@@ -522,7 +524,7 @@ func ConnectToTCPServer(address, password, room string, timelimit ...time.Durati
 		log.Debug(err)
 		return
 	}
-	err = c.Send(bSend)
+	err = c.Send(bSend) // 发送房间号, 用于连接, 开始业务逻辑外围部分
 	if err != nil {
 		log.Debug(err)
 		return
